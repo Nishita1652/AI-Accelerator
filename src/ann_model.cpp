@@ -30,13 +30,18 @@ std::vector<float> softmax(const std::vector<float>& input) {
     return result;
 }
 
-// Synthetic Dataset Fallback Generator
+// Synthetic Dataset Fallback Generator (Upgraded with Gaussian Noise)
 void generate_synthetic_data(std::vector<std::vector<float>>& X, std::vector<int>& y, int num_samples) {
-    std::cout << "[WARN] 'mnist_data.csv' not found or empty. Generating " 
-              << num_samples << " synthetic samples in memory...\n";
+    std::cout << "[WARN] CSV unreadable. Generating " << num_samples << " highly-randomized synthetic samples...\n";
     
-    std::default_random_engine rand_eng(42);
-    std::uniform_real_distribution<float> val_dist(0.0f, 0.5f);
+    std::default_random_engine rand_eng(42); // Fixed seed for reproducibility
+    
+    // Gaussian distribution for background noise (mean 0.05, std_dev 0.05)
+    std::normal_distribution<float> background_noise(0.05f, 0.05f); 
+    
+    // Gaussian distribution for the "digit strokes" (mean 0.7, std_dev 0.15)
+    std::normal_distribution<float> feature_intensity(0.7f, 0.15f);
+    
     std::uniform_int_distribution<int> label_dist(0, OUTPUT_SIZE - 1);
 
     X.assign(num_samples, std::vector<float>(INPUT_SIZE, 0.0f));
@@ -44,12 +49,29 @@ void generate_synthetic_data(std::vector<std::vector<float>>& X, std::vector<int
 
     for (int s = 0; s < num_samples; ++s) {
         y[s] = label_dist(rand_eng);
+        
+        // Define a unique "stroke cluster" for each class to mimic structural data
+        // For example, class 0 gets pixels 0-78, class 1 gets 78-156, etc.
+        int cluster_size = INPUT_SIZE / OUTPUT_SIZE;
+        int cluster_start = y[s] * cluster_size;
+        
+        // Add some random shift to the cluster size to make it imperfect (like handwriting)
+        std::uniform_int_distribution<int> length_variance(-15, 15);
+        int cluster_end = cluster_start + 45 + length_variance(rand_eng);
+
         for (int i = 0; i < INPUT_SIZE; ++i) {
-            float pattern = (i % (y[s] + 1) == 0) ? 0.5f : 0.0f;
-            X[s][i] = val_dist(rand_eng) + pattern;
+            if (i >= cluster_start && i < cluster_end) {
+                // Inject structural "digit" data with high intensity and noise
+                float pixel_val = feature_intensity(rand_eng);
+                X[s][i] = std::clamp(pixel_val, 0.0f, 1.0f);
+            } else {
+                // Inject random background noise across the rest of the image
+                float noise_val = background_noise(rand_eng);
+                X[s][i] = std::clamp(noise_val, 0.0f, 1.0f);
+            }
         }
     }
-    std::cout << "[INFO] Synthetic dataset created successfully.\n";
+    std::cout << "[INFO] Realistic noisy synthetic dataset created successfully.\n";
 }
 
 // Unified Data Loader with Fallback
