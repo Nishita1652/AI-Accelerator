@@ -21,13 +21,16 @@ Part of the Custom AI Hardware Acceleration Pipeline. Phase 1 establishes a soft
 
 ```text
 ├── data/
-│   ├── train-images-idx3-ubyte.gz
-│   ├── train-labels-idx1-ubyte.gz
-│   ├── t10k-images-idx3-ubyte.gz
-│   └── t10k-labels-idx1-ubyte.gz
+│   ├── raw/                  
+│   │   ├── train-images-idx3-ubyte.gz
+│   │   ├── train-labels-idx1-ubyte.gz
+│   │   ├── t10k-images-idx3-ubyte.gz
+│   │   └── t10k-labels-idx1-ubyte.gz
+│   └── processed/            # Stores the final parsed/generated CSV
+│       └── mnist_data.csv
 ├── scripts/
-│   └── prepare_mnist_gz.py      # Unpacks binary datasets into normalized CSV format
+│   └── prepare_data.py       # Reads raw .gz with automatic synthetic fallback
 ├── src/
-│   └── main.cpp                  # Pure C++ ANN forward/backward pass & inference
+│   └── main.cpp              # Pure C++ hardware-friendly ANN model
 ├── .gitignore
 └── README.md
