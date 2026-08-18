@@ -1,1 +1,52 @@
+# ==========================================
+# C++ Build Outputs & Executables
+# ==========================================
+*.o
+*.obj
+*.out
+*.exe
+ann_model
+lightweight_ann
+bin/
+build/
 
+# ==========================================
+# Python & Bytecode
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+*.egg-info/
+
+# ==========================================
+# Datasets & Temporary Data Files
+# ==========================================
+# Ignore large dataset files if generated locally
+mnist_data.csv
+*.tar.gz
+*.bundle
+
+# ==========================================
+# IDE & System Files
+# ==========================================
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*~
+
+# ==========================================
+# Hardware EDA, Vivado & HLS Artifacts
+# ==========================================
+*.log
+*.jou
+*.str
+*.rpt
+.Xil/
+vivado*.str
+vivado*.jou
+openlane_runs/
+runs/
+*.vcd
