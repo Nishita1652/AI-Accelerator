@@ -14,23 +14,21 @@ Part of the Custom AI Hardware Acceleration Pipeline. Phase 1 establishes a soft
 * **Member 1 (Nishita)
 * **Member 2 (Sanskriti Dasila)
 * **Member 3 (Pragya Baruah)
-
 ---
 
 ## 📁 Repository Directory Structure
 
 ```text
+AI-Accelerator/
 ├── data/
-│   ├── raw/                  
-│   │   ├── train-images-idx3-ubyte.gz
-│   │   ├── train-labels-idx1-ubyte.gz
-│   │   ├── t10k-images-idx3-ubyte.gz
-│   │   └── t10k-labels-idx1-ubyte.gz
-│   └── processed/            # Stores the final parsed/generated CSV
-│       └── mnist_data.csv
+│   ├── raw/                  # Place the 4 raw .gz MNIST files here (Optional)
+│   └── processed/            # Auto-generated CSV dataset lands here
 ├── scripts/
-│   └── prepare_data.py       # Reads raw .gz with automatic synthetic fallback
+│   └── prepare_data.py       # Data loader with Gaussian synthetic fallback
 ├── src/
-│   └── main.cpp              # Pure C++ hardware-friendly ANN model
-├── .gitignore
-└── README.md
+│   ├── ann_model.h           # Model blueprints & hyperparameters
+│   ├── ann_model.cpp         # Neural network math & data parsing logic
+│   └── main.cpp              # Training execution loop
+├── .gitignore                # Prevents binaries and CSVs from uploading
+└── README.md                 # Project documentation
+
