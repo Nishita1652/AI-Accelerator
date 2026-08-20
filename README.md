@@ -21,14 +21,14 @@ Part of the Custom AI Hardware Acceleration Pipeline. Phase 1 establishes a soft
 ```text
 AI-Accelerator/
 ├── data/
-│   ├── raw/                  # Place the 4 raw .gz MNIST files here (Optional)
-│   └── processed/            # Auto-generated CSV dataset lands here
+│   ├── raw/                 
+│   └── processed/            
 ├── scripts/
 │   └── prepare_data.py       # Data loader with Gaussian synthetic fallback
 ├── src/
 │   ├── ann_model.h           # Model blueprints & hyperparameters
 │   ├── ann_model.cpp         # Neural network math & data parsing logic
 │   └── main.cpp              # Training execution loop
-├── .gitignore                # Prevents binaries and CSVs from uploading
-└── README.md                 # Project documentation
+├── .gitignore                
+└── README.md                
 
