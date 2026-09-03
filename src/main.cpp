@@ -35,6 +35,7 @@ int main() {
     }
 
     std::cout << "\n[SUCCESS] Phase 1 software training baseline complete!\n";
+    model.save_weights("float_weights.txt");
     return 0;
 }
 

@@ -31,6 +31,7 @@ public:
     std::vector<float> forward(const std::vector<float>& input, std::vector<float>& hidden_out);
     void train_sample(const std::vector<float>& input, int target_label);
     int predict(const std::vector<float>& input);
+    void save_weights(const std::string& filename);
 };
 
 #endif // ANN_MODEL_H

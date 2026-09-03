@@ -192,3 +192,48 @@ int LightweightANN::predict(const std::vector<float>& input) {
     std::vector<float> output = forward(input, hidden_out);
     return std::distance(output.begin(), std::max_element(output.begin(), output.end()));
 }
+
+void LightweightANN::save_weights(const std::string& filename) {
+    std::ofstream file(filename);
+
+    if (!file.is_open()) {
+        std::cerr << "[ERROR] Could not open " << filename << "\n";
+        return;
+    }
+
+    // W1: 784 x 32
+    file << "W1\n";
+    for (int i = 0; i < INPUT_SIZE; ++i) {
+        for (int j = 0; j < HIDDEN_SIZE; ++j) {
+            file << W1[i][j] << " ";
+        }
+        file << "\n";
+    }
+
+    // b1: 32
+    file << "b1\n";
+    for (int j = 0; j < HIDDEN_SIZE; ++j) {
+        file << b1[j] << " ";
+    }
+    file << "\n";
+
+    // W2: 32 x 10
+    file << "W2\n";
+    for (int i = 0; i < HIDDEN_SIZE; ++i) {
+        for (int j = 0; j < OUTPUT_SIZE; ++j) {
+            file << W2[i][j] << " ";
+        }
+        file << "\n";
+    }
+
+    // b2: 10
+    file << "b2\n";
+    for (int j = 0; j < OUTPUT_SIZE; ++j) {
+        file << b2[j] << " ";
+    }
+    file << "\n";
+
+    file.close();
+
+    std::cout << "[SUCCESS] Float32 weights saved to " << filename << "\n";
+}
