@@ -31,7 +31,14 @@ public:
     std::vector<float> forward(const std::vector<float>& input, std::vector<float>& hidden_out);
     void train_sample(const std::vector<float>& input, int target_label);
     int predict(const std::vector<float>& input);
-    void save_weights(const std::string& filename);
+
+    // Exports trained FP32 parameters to a flat text file for the
+    // quantization pipeline (quantize_weights.cpp) to consume.
+    // Format: header line "INPUT_SIZE HIDDEN_SIZE OUTPUT_SIZE", then
+    // W1 (row-major, INPUT_SIZE*HIDDEN_SIZE floats), b1 (HIDDEN_SIZE),
+    // W2 (row-major, HIDDEN_SIZE*OUTPUT_SIZE floats), b2 (OUTPUT_SIZE).
+    // This exact flattening order matches what ann_inference.cpp expects.
+    void export_for_quantization(const std::string& filename) const;
 };
 
 #endif // ANN_MODEL_H

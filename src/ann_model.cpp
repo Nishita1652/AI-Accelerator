@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <fstream>
 #include <sstream>
+#include <iomanip>
 
 // Hardware Activation Functions
 float relu(float x) {
@@ -33,15 +34,11 @@ std::vector<float> softmax(const std::vector<float>& input) {
 // Synthetic Dataset Fallback Generator (Upgraded with Gaussian Noise)
 void generate_synthetic_data(std::vector<std::vector<float>>& X, std::vector<int>& y, int num_samples) {
     std::cout << "[WARN] CSV unreadable. Generating " << num_samples << " highly-randomized synthetic samples...\n";
-    
+
     std::default_random_engine rand_eng(42); // Fixed seed for reproducibility
-    
-    // Gaussian distribution for background noise (mean 0.05, std_dev 0.05)
-    std::normal_distribution<float> background_noise(0.05f, 0.05f); 
-    
-    // Gaussian distribution for the "digit strokes" (mean 0.7, std_dev 0.15)
+
+    std::normal_distribution<float> background_noise(0.05f, 0.05f);
     std::normal_distribution<float> feature_intensity(0.7f, 0.15f);
-    
     std::uniform_int_distribution<int> label_dist(0, OUTPUT_SIZE - 1);
 
     X.assign(num_samples, std::vector<float>(INPUT_SIZE, 0.0f));
@@ -49,23 +46,18 @@ void generate_synthetic_data(std::vector<std::vector<float>>& X, std::vector<int
 
     for (int s = 0; s < num_samples; ++s) {
         y[s] = label_dist(rand_eng);
-        
-        // Define a unique "stroke cluster" for each class to mimic structural data
-        // For example, class 0 gets pixels 0-78, class 1 gets 78-156, etc.
+
         int cluster_size = INPUT_SIZE / OUTPUT_SIZE;
         int cluster_start = y[s] * cluster_size;
-        
-        // Add some random shift to the cluster size to make it imperfect (like handwriting)
+
         std::uniform_int_distribution<int> length_variance(-15, 15);
         int cluster_end = cluster_start + 45 + length_variance(rand_eng);
 
         for (int i = 0; i < INPUT_SIZE; ++i) {
             if (i >= cluster_start && i < cluster_end) {
-                // Inject structural "digit" data with high intensity and noise
                 float pixel_val = feature_intensity(rand_eng);
                 X[s][i] = std::clamp(pixel_val, 0.0f, 1.0f);
             } else {
-                // Inject random background noise across the rest of the image
                 float noise_val = background_noise(rand_eng);
                 X[s][i] = std::clamp(noise_val, 0.0f, 1.0f);
             }
@@ -86,7 +78,7 @@ void load_or_fallback_data(const std::string& filename, std::vector<std::vector<
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string val;
-        
+
         if (std::getline(ss, val, ',')) {
             y.push_back(std::stoi(val));
         }
@@ -103,7 +95,7 @@ void load_or_fallback_data(const std::string& filename, std::vector<std::vector<
     if (X.empty()) {
         generate_synthetic_data(X, y);
     } else {
-        std::cout << "[INFO] Successfully loaded " << X.size() 
+        std::cout << "[INFO] Successfully loaded " << X.size()
                   << " real samples from " << filename << ".\n";
     }
 }
@@ -193,47 +185,41 @@ int LightweightANN::predict(const std::vector<float>& input) {
     return std::distance(output.begin(), std::max_element(output.begin(), output.end()));
 }
 
-void LightweightANN::save_weights(const std::string& filename) {
-    std::ofstream file(filename);
-
-    if (!file.is_open()) {
-        std::cerr << "[ERROR] Could not open " << filename << "\n";
+// ============================================================
+// Export trained FP32 weights for the quantization pipeline.
+// Flattening order MUST match ann_inference.h's documented
+// convention: W1[i][j] -> i*HIDDEN_SIZE+j, W2[j][k] -> j*OUTPUT_SIZE+k.
+// ============================================================
+void LightweightANN::export_for_quantization(const std::string& filename) const {
+    std::ofstream out(filename);
+    if (!out.is_open()) {
+        std::cerr << "[ERROR] Could not open " << filename << " for writing.\n";
         return;
     }
 
-    // W1: 784 x 32
-    file << "W1\n";
-    for (int i = 0; i < INPUT_SIZE; ++i) {
-        for (int j = 0; j < HIDDEN_SIZE; ++j) {
-            file << W1[i][j] << " ";
-        }
-        file << "\n";
-    }
+    out << std::setprecision(9);
+    out << INPUT_SIZE << " " << HIDDEN_SIZE << " " << OUTPUT_SIZE << "\n";
 
-    // b1: 32
-    file << "b1\n";
-    for (int j = 0; j < HIDDEN_SIZE; ++j) {
-        file << b1[j] << " ";
-    }
-    file << "\n";
+    // W1, row-major [INPUT_SIZE][HIDDEN_SIZE]
+    for (int i = 0; i < INPUT_SIZE; ++i)
+        for (int j = 0; j < HIDDEN_SIZE; ++j)
+            out << W1[i][j] << " ";
+    out << "\n";
 
-    // W2: 32 x 10
-    file << "W2\n";
-    for (int i = 0; i < HIDDEN_SIZE; ++i) {
-        for (int j = 0; j < OUTPUT_SIZE; ++j) {
-            file << W2[i][j] << " ";
-        }
-        file << "\n";
-    }
+    // b1
+    for (int j = 0; j < HIDDEN_SIZE; ++j) out << b1[j] << " ";
+    out << "\n";
 
-    // b2: 10
-    file << "b2\n";
-    for (int j = 0; j < OUTPUT_SIZE; ++j) {
-        file << b2[j] << " ";
-    }
-    file << "\n";
+    // W2, row-major [HIDDEN_SIZE][OUTPUT_SIZE]
+    for (int j = 0; j < HIDDEN_SIZE; ++j)
+        for (int k = 0; k < OUTPUT_SIZE; ++k)
+            out << W2[j][k] << " ";
+    out << "\n";
 
-    file.close();
+    // b2
+    for (int k = 0; k < OUTPUT_SIZE; ++k) out << b2[k] << " ";
+    out << "\n";
 
-    std::cout << "[SUCCESS] Float32 weights saved to " << filename << "\n";
+    out.close();
+    std::cout << "[SUCCESS] Exported FP32 weights to '" << filename << "' for quantization.\n";
 }

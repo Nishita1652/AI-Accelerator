@@ -10,7 +10,6 @@ int main() {
     std::vector<std::vector<float>> X;
     std::vector<int> y;
 
-    // Load real dataset from processed directory or automatically fallback to synthetic data
     const std::string dataset_path = "data/processed/mnist_data.csv";
     load_or_fallback_data(dataset_path, X, y);
 
@@ -35,7 +34,9 @@ int main() {
     }
 
     std::cout << "\n[SUCCESS] Phase 1 software training baseline complete!\n";
-    model.save_weights("float_weights.txt");
+
+    // Export trained FP32 weights so quantize_weights.cpp can pick them up.
+    model.export_for_quantization("float_weights.txt");
+
     return 0;
 }
-
