@@ -1,5 +1,26 @@
 # Kernel Interface Contract — `ann_inference`
 
+## File ownership — read this before touching anything
+
+This section exists because it was violated once already: Pragya, working
+without access to the real kernel source, wrote her own version of
+`ann_inference.cpp` from scratch and pushed over Member 1's file. Not
+malicious — she genuinely didn't have the real file to build against —
+but it silently reintroduced a missing-bias bug and broke the pragma'd
+kernel. To prevent a repeat:
+
+| File | Owner | Others may... |
+|---|---|---|
+| `src/ann_inference.h`, `src/ann_inference.cpp` | **Member 1 only** | ...call it via its public signature. Never edit it, never rewrite it, never push over it. |
+| `weights.h` (project root) | **Pragya only** | ...read it. Nobody else generates or edits this file. |
+| `src/accuracy_test.cpp` | Shared testing ground | Anyone can extend this to test predictions end-to-end — it calls the kernel, it doesn't reimplement it. |
+| `tb_main.cpp` | **Sanskriti only**, once started | Same rule as the kernel — one owner, others call it, don't fork it. |
+
+**Before touching any file above that isn't yours:** pull `main` first
+and confirm you actually have the real, current version — not a `.exe`,
+not a version from memory, not a rewrite from an old message. If you
+don't have the source file, ask for it instead of reconstructing it.
+
 ## Repo layout (confirmed against Pragya's tree)
 
 ```
@@ -79,13 +100,34 @@ placeholder `weights.h` (all 1s/0s) is included in this delivery as
 the format Pragya's real file needs to match — it's a literal
 drop-in replacement, same filename, same array names.
 
-⚠️ **Still unresolved, needs a real conversation, not just this doc:**
-the kernel does raw INT8×INT8→INT32 accumulation with no rescaling
-between layers. That only produces sane predictions if Pragya's weight
-scale factor keeps the raw sums meaningful on its own. If proper
-per-layer requantization is needed, the kernel needs a small addition
-— bring your chosen scale factor(s) to a sync before finalizing real
-weights.
+## ✅ The scale-factor question (previously open) — now resolved
+
+The kernel now applies a real fixed-point rescale between Layer 1 and
+Layer 2, instead of a naive clamp:
+
+```
+hidden_int8 = (relu(acc_int32) * L1_RESCALE_MULT) >> RESCALE_SHIFT
+```
+
+`L1_RESCALE_MULT` is computed by `quantize_weights.cpp` from actual
+calibration data (max post-ReLU hidden activation over the training
+set, captured by `export_for_quantization()` in `ann_model.cpp`) and
+written into `weights.h` alongside the weight arrays. `RESCALE_SHIFT`
+(16) is a shared constant in `ann_inference.h` so both sides agree on
+the fixed-point format without passing it around at runtime.
+
+Layer 2 does **not** need a rescale — per-tensor scaling is uniform
+across all 10 output channels, so it can't change which channel
+argmax picks. The raw int32 logits go straight to argmax.
+
+**Verified, not just implemented:** ran the actual training pipeline
+(via its synthetic-data fallback, since no real MNIST CSV is available
+in this environment), exported real trained weights, quantized them
+with this exact program, and fed them through the kernel — got varied,
+non-degenerate logits (not the saturated-to-127 result a naive clamp
+would produce) and 100% accuracy on a held-out synthetic test set.
+Rerun this yourself once real MNIST data replaces the synthetic
+fallback — same commands, real numbers.
 
 ---
 

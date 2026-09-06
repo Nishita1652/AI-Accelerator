@@ -50,3 +50,5 @@ vivado*.jou
 openlane_runs/
 runs/
 *.vcd
+*.exe
+*.o
