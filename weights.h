@@ -1,6 +1,14 @@
 #ifndef WEIGHTS_H
 #define WEIGHTS_H
 
+// Add to weights.h:
+#ifndef L1_RESCALE_MULT
+#endif
+
+#ifndef RESCALE_SHIFT
+#define RESCALE_SHIFT 16
+#endif
+
 #include "src/ann_inference.h"
 
 // ============================================================
