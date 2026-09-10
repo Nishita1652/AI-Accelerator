@@ -1,9 +1,16 @@
-// Accuracy test harness against real MNIST data — originally written
-// by Pragya inside ann_inference.cpp, extracted here since the kernel
-// file itself is Member 1's owned deliverable per INTERFACE_CONTRACT.md.
-// Adapted to call ann_inference()'s actual signature (void, with
-// output_scores[]/predicted_label as outputs, biases included in the
-// accumulation) rather than the modified version that dropped both.
+// Accuracy test harness against REAL, HELD-OUT MNIST test data —
+// originally written by Pragya inside ann_inference.cpp, extracted
+// here since the kernel file itself is Member 1's owned deliverable
+// per INTERFACE_CONTRACT.md. Adapted to call ann_inference()'s actual
+// signature (void, with output_scores[]/predicted_label as outputs,
+// biases included in the accumulation) rather than the modified
+// version that dropped both.
+//
+// IMPORTANT: reads mnist_test.csv (the real MNIST t10k-* test set),
+// NOT mnist_data.csv (the training set). Testing against training
+// data inflates accuracy by measuring memorization, not
+// generalization — main.cpp trains on mnist_data.csv, this measures
+// against samples the network never saw.
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -11,10 +18,13 @@
 #include "ann_inference.h"
 
 int main() {
-    std::ifstream file("data/processed/mnist_data.csv");
+    std::ifstream file("data/processed/mnist_test.csv");
 
     if (!file.is_open()) {
-        std::cerr << "[ERROR] Could not open mnist_data.csv\n";
+        std::cerr << "[ERROR] Could not open mnist_test.csv\n";
+        std::cerr << "        Run scripts/prepare_mnist_gz.py first — it now\n";
+        std::cerr << "        generates this held-out test set from the real\n";
+        std::cerr << "        t10k-images/labels files, separate from training data.\n";
         return 1;
     }
 
@@ -22,8 +32,9 @@ int main() {
     int total = 0;
     int correct = 0;
 
-    // Test first 10 images
-    while (std::getline(file, line) && total < 10) {
+    // Test first 100 images (adjust freely — more samples = more
+    // statistically meaningful accuracy, at the cost of runtime)
+    while (std::getline(file, line) && total < 100) {
         if (line.empty()) continue;
 
         std::stringstream ss(line);
