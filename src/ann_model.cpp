@@ -56,10 +56,10 @@ void generate_synthetic_data(std::vector<std::vector<float>>& X, std::vector<int
         for (int i = 0; i < INPUT_SIZE; ++i) {
             if (i >= cluster_start && i < cluster_end) {
                 float pixel_val = feature_intensity(rand_eng);
-                X[s][i] = std::clamp(pixel_val, 0.0f, 1.0f);
+                X[s][i] = (pixel_val < 0.0f) ? 0.0f : ((pixel_val > 1.0f) ? 1.0f : pixel_val);
             } else {
                 float noise_val = background_noise(rand_eng);
-                X[s][i] = std::clamp(noise_val, 0.0f, 1.0f);
+                X[s][i] = (noise_val < 0.0f) ? 0.0f : ((noise_val > 1.0f) ? 1.0f : noise_val);
             }
         }
     }
