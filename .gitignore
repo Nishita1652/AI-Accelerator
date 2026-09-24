@@ -52,3 +52,8 @@ runs/
 *.vcd
 *.exe
 *.o
+# Compiled binaries (no extension on Linux/Mac — *.exe won't catch these)
+/phase1_train
+/accuracy_check
+/smoke_test
+*.o
