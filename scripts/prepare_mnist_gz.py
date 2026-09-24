@@ -14,7 +14,7 @@ TEST_IMAGES_PATH = os.path.join(RAW_DIR, "t10k-images-idx3-ubyte.gz")
 TEST_LABELS_PATH = os.path.join(RAW_DIR, "t10k-labels-idx1-ubyte.gz")
 
 NUM_TRAIN_SAMPLES = 5000
-NUM_TEST_SAMPLES = 1000  # real MNIST test set has 10000; capped for speed
+NUM_TEST_SAMPLES = 10000  # real MNIST test set has 10000; capped for speed
 NUM_FEATURES = 784
 NUM_CLASSES = 10
 
