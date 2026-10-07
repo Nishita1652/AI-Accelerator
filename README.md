@@ -1,34 +1,232 @@
-# Custom AI Hardware Acceleration Pipeline
+# ⚡ Hardware Acceleration of a Lightweight ANN
+### End-to-End Hardware-Software Co-Design & HLS Pipeline for MNIST Digit Recognition
 
-A hardware-software co-design project targeting an end-to-end custom neural network accelerator—progressing from a software baseline to C++ High-Level Synthesis (HLS), FPGA prototyping, open-source EDA synthesis, and ASIC tapeout.
-
----
-## Phase 1: C++ Hardware Pathfinder Neural Network
-
-Part of the Custom AI Hardware Acceleration Pipeline. Phase 1 establishes a software-level, dependency-free C++ baseline model (MLP/ANN) trained on the MNIST handwritten digit benchmark dataset to prepare for High-Level Synthesis (HLS) and FPGA/ASIC implementation.
+An end-to-end hardware-software co-design framework targeting custom neural network acceleration. The pipeline bridges high-level model exploration, software baseline validation, calibration-driven fixed-point quantization, High-Level Synthesis (HLS) with commercial and open-source toolchains, and cycle-accurate RTL verification.
 
 ---
 
-## 👥 Team Members
+## 👥 Team Members & Component Ownership
 
-* **Member 1 (Nishita)
-* **Member 2 (Sanskriti Dasila)
-* **Member 3 (Pragya Baruah)
+| Team Member |
+|---|
+| **Nishita** |
+| **Pragya Baruah** |
+| **Sanskriti Dasila** | 
+
+---
+
+## 🏗️ System Architecture & Workflow Pipeline
+
+```
+  ┌────────────────────────────────────────────────────────┐
+  │                    MNIST Dataset                       │
+  │     Raw IDX Gzips  ───►  scripts/prepare_mnist_gz.py   │
+  └───────────────────────────┬────────────────────────────┘
+                              │ CSV Splits (5k Train / 10k Test)
+                              ▼
+  ┌────────────────────────────────────────────────────────┐
+  │               Phase 1: Software Baselines              │
+  │  • Python Reference (NumPy) : python_reference/        │
+  │  • C++ Pathfinder (FP32)    : src/main.cpp             │
+  └───────────────────────────┬────────────────────────────┘
+                              │ Trained FP32 Weights (float_weights.txt)
+                              ▼
+  ┌────────────────────────────────────────────────────────┐
+  │            Phase 2: Post-Training Quantization         │
+  │  • Calibration over activation distributions           │
+  │  • INT8 Weights & INT32 Accumulator Biases             │
+  │  • Q16 Requantization Multiplier Derivation            │
+  │  • Code Generator: quantize_weights.cpp ──► weights.h  │
+  └───────────────────────────┬────────────────────────────┘
+                              │ Static BRAM-Mapped Weights Header
+                              ▼
+  ┌────────────────────────────────────────────────────────┐
+  │         Phase 3: Hardware HLS Kernel & Pragmas         │
+  │  • Top-level kernel : src/ann_inference.cpp            │
+  │  • Bus Interfaces   : m_axi (gmem0/1), s_axilite (CTRL)│
+  │  • Optimizations    : Cyclic Partition, Unroll (x8),   │
+  │                       Pipeline (II=1), Hardware Argmax │
+  └───────────────────────────┬────────────────────────────┘
+                              │ C++ Kernel & Static Weights
+                              ▼
+  ┌────────────────────────────────────────────────────────┐
+  │        Phase 4: Synthesis & C/RTL Co-Verification      │
+  │  • Host Accuracy Harness : src/accuracy_test.cpp       │
+  │  • C/RTL Testbench       : tb_main.cpp                 │
+  │  • Commercial Toolflow   : run_hls.tcl (Vitis HLS)     │
+  │  • Open-Source Toolflow  : run_bambu.sh (PandA Bambu) │
+  │  • Target Platform       : AMD ZCU104 (XCZU7EV)        │
+  └────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🎯 Network Specifications
+
+* **Topology**: Fully-Connected Multi-Layer Perceptron ($784 \to 32 \to 10$)
+  * **Input Layer**: $784$ features ($28 \times 28$ grayscale pixels, normalized $[0.0, 1.0] \to \text{INT8} [0, 127]$)
+  * **Hidden Layer**: $32$ neurons with ReLU activation and Q16 fixed-point requantization
+  * **Output Layer**: $10$ neurons representing classification logits (digits `0`–`9`)
+* **Hardware Optimizations**:
+  * **Softmax Elimination**: Softmax is strictly monotonic ($\arg\max(\text{softmax}(z)) \equiv \arg\max(z)$); omitting $\exp()$ and division saves substantial DSP and LUT resources on FPGA.
+  * **Accumulator Sizing**: Dot-product accumulators use signed 32-bit integers (`acc_t` / `int32_t`). Maximum positive sum is $784 \times 127 \times 127 \approx 12.64 \times 10^6$, well within INT32 range ($\approx \pm 2.14 \times 10^9$), guaranteeing zero overflow.
+
 ---
 
 ## 📁 Repository Directory Structure
 
 ```text
 AI-Accelerator/
+├── INTERFACE_CONTRACT.md          # Multi-developer interface, ownership, and pragma specification
+├── README.md                      # Comprehensive project documentation
+├── quantize_weights.cpp           # Post-training quantization and weights.h generation tool
+├── weights.h                      # Autogenerated static const INT8/INT32 weight arrays (mapped to BRAM)
+├── float_weights.txt              # Intermediate FP32 trained parameters exported by C++ model
+├── quantized_weights.txt          # Human-readable INT8 quantized parameters audit log
+├── run_hls.tcl                    # Automated AMD Vitis HLS project synthesis & cosim script
+├── run_bambu.sh                   # Reference synthesis invocation for PandA Bambu open-source HLS
+├── tb_main.cpp                    # HLS C/RTL verification testbench for simulation gates
+├── smoke_test                     # Pre-compiled local validation executable
+│
 ├── data/
-│   ├── raw/                 
-│   └── processed/            
+│   ├── raw/                       # Downloaded MNIST IDX gzip files (t10k, train)
+│   └── processed/
+│       ├── mnist_data.csv         # 5,000 normalized training samples
+│       └── mnist_test.csv         # 10,000 held-out normalized testing samples
+│
+├── python_reference/
+│   └── train_python_baseline.py   # Baseline NumPy implementation with identical hyperparameters
+│
 ├── scripts/
-│   └── prepare_data.py       # Data loader with Gaussian synthetic fallback
-├── src/
-│   ├── ann_model.h           # Model blueprints & hyperparameters
-│   ├── ann_model.cpp         # Neural network math & data parsing logic
-│   └── main.cpp              # Training execution loop
-├── .gitignore                
-└── README.md                
+│   └── prepare_mnist_gz.py        # Dataset extraction & CSV normalization with synthetic fallback
+│
+└── src/
+    ├── ann_model.h                # Phase 1: C++ FP32 neural network declarations
+    ├── ann_model.cpp              # Phase 1: C++ FP32 forward, SGD backward, and exporter logic
+    ├── main.cpp                   # Phase 1: Software training runner & test evaluation
+    ├── ann_inference.h            # Hardware kernel header, constants, and interface signatures
+    ├── ann_inference.cpp          # Synthesizable HLS top-level kernel with HLS directives
+    ├── accuracy_test.cpp          # End-to-end test runner evaluating the INT8 kernel on test data
+    └── local_smoke_test.cpp       # Zero-dependency structural smoke test for compilation sanity
+```
 
+---
+
+## 🔬 Hardware Microarchitecture & Interface Contracts
+
+The top-level synthesizable kernel signature is defined in [`src/ann_inference.h`](src/ann_inference.h):
+
+```cpp
+void ann_inference(
+    data_t input_image[INPUT_SIZE],    // int8_t[784] — streamed input pixels
+    acc_t  output_scores[OUTPUT_SIZE], // int32_t[10] — raw unscaled logits
+    int    &predicted_label            // 0-9 hardware argmax output
+);
+```
+
+### Bus Interfaces & Directives
+* **AXI4-Master (`m_axi`)**: Applied to `input_image` (bundle `gmem0`, depth 784) and `output_scores` (bundle `gmem1`, depth 10) for burst streaming from host memory.
+* **AXI4-Lite (`s_axilite`)**: Applied to scalar `predicted_label` and block-level control registers (`return` bundle `CTRL`) for interrupt and status management.
+* **Weights in On-Chip BRAM**: Weights and biases are declared as `static const` compile-time arrays in [`weights.h`](weights.h). They do not consume AXI bandwidth and are mapped into dedicated Block RAM/ROM blocks.
+* **Memory Partitioning**:
+  * `W1_QUANT` and `W2_QUANT` partitioned cyclically by factor $8$ (`ARRAY_PARTITION cyclic factor=8 dim=1`) to grant 8 parallel read ports.
+  * `B1_QUANT`, `B2_QUANT`, and `hidden[]` completely partitioned (`complete dim=1`) for instantaneous parallel access.
+* **Pipelining & Unrolling**: Dot-product inner loops are pipelined at Initiation Interval 1 (`#pragma HLS PIPELINE II=1`) with parallel unrolling (`#pragma HLS UNROLL factor=8`).
+
+### Layer 1 $\to$ Layer 2 Fixed-Point Rescaling
+Naive clamping to $[0, 127]$ severely distorts real activation distributions. Instead, `quantize_weights.cpp` derives `L1_RESCALE_MULT` from training activations:
+$$\text{hidden\_int8} = \text{clamp}_{0}^{127}\left(\frac{\text{ReLU}(\text{acc\_int32}) \times \text{L1\_RESCALE\_MULT}}{2^{16}}\right)$$
+The 64-bit intermediate arithmetic prevents accumulator overflow prior to right-shifting by `RESCALE_SHIFT` ($16$).
+
+---
+
+## 🚀 Step-by-Step Execution Guide
+
+### Prerequisites
+* **C++ Compiler**: GCC / Clang supporting C++17 (`g++`)
+* **Python**: Python 3.8+ with `numpy`
+* **HLS Tools** (for FPGA/RTL synthesis):
+  * AMD Vitis HLS / Vivado HLS (2020.2+)
+  * PandA Bambu HLS (v2023.1+)
+
+---
+
+### Step 1: Dataset Extraction & Preparation
+Extract the MNIST dataset into normalized training and testing CSVs:
+```bash
+python3 scripts/prepare_mnist_gz.py
+```
+*Outputs: `data/processed/mnist_data.csv` (5,000 samples) and `data/processed/mnist_test.csv` (10,000 samples).*
+
+---
+
+### Step 2: Run Python Reference Baseline (Optional)
+Run the deliberate NumPy baseline to record reference convergence and accuracy:
+```bash
+python3 python_reference/train_python_baseline.py
+```
+
+---
+
+### Step 3: Train Software C++ Model (FP32)
+Compile and execute the dependency-free C++ Pathfinder ANN:
+```bash
+g++ -O3 -std=c++17 src/main.cpp src/ann_model.cpp -o train_model
+./train_model
+```
+*Trains for 25 epochs, reports held-out test accuracy, and exports parameters to `float_weights.txt`.*
+
+---
+
+### Step 4: Quantize Weights to INT8 & Generate `weights.h`
+Run the quantization engine to calibrate activations, compute the scale factor, and produce the BRAM header:
+```bash
+g++ -O3 -std=c++17 quantize_weights.cpp -o quantize_weights
+./quantize_weights
+```
+*Outputs: `quantized_weights.txt` (audit log) and `weights.h` (synthesizable header).*
+
+---
+
+### Step 5: Validate INT8 Kernel Accuracy on Host
+Evaluate the fixed-point C++ hardware kernel directly against the 10,000-sample test set:
+```bash
+g++ -O3 -std=c++17 src/accuracy_test.cpp src/ann_inference.cpp -o accuracy_test
+./accuracy_test
+```
+Or execute the standalone zero-dependency smoke test:
+```bash
+g++ -O3 -std=c++17 src/local_smoke_test.cpp src/ann_inference.cpp -o smoke_test
+./smoke_test
+```
+
+---
+
+### Step 6: Hardware High-Level Synthesis (HLS)
+
+#### Option A: AMD Vitis HLS (Commercial Path)
+Synthesizes the kernel for the **AMD Zynq UltraScale+ ZCU104** board (`xczu7ev-ffvc1156-2-e`) at $100\text{ MHz}$ ($10\text{ ns}$ clock):
+```bash
+vitis_hls -f run_hls.tcl
+```
+*Executes C Simulation (`csim_design`), C Synthesis (`csynth_design`), and bit-accurate C/RTL Co-Simulation (`cosim_design`).*
+
+#### Option B: PandA Bambu HLS (Open-Source Path)
+Synthesizes the C++ kernel into Verilog using PandA Bambu:
+```bash
+chmod +x run_bambu.sh
+./run_bambu.sh
+```
+
+---
+
+## 📊 Benchmark & Accuracy Tracking
+
+| Implementation Level | Representation | Target Hardware | Expected Accuracy | Primary Metric |
+|---|---|---|---|---|
+| **Python Baseline** | 32-bit Float | Host CPU (NumPy) | ~90 - 92% | Reference Algorithmic Ceiling |
+| **C++ Baseline** | 32-bit Float | Host CPU (C++17) | ~90 - 92% | Software Model Pathfinder |
+| **INT8 Kernel (csim)** | 8-bit Quantized | Host CPU Simulation | ~89 - 91% | Quantization Degradation $<1.5\%$ |
+| **RTL Co-Simulation** | Verilog RTL | ZCU104 (XCZU7EV) | ~89 - 91% | Bit-Exact Match with C Model |
+
+---
